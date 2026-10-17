@@ -8,6 +8,7 @@ const ensureRuntimeShape = (config = {}) => {
     config.settings = config.settings || {};
     config.settings.voice = config.settings.voice || { enabled: false, channelId: '' };
     config.settings.adventure = config.settings.adventure || { enabled: false, targetId: '', channelId: '', guildId: '' };
+    config.settings.lucyControl = config.settings.lucyControl || { start: 'lucy start', pause: 'lucy pause', allowIds: [] };
     return config;
 };
 
@@ -40,6 +41,15 @@ module.exports = (state) => ({
         return {
             startCmd: String(ctrl.start || "wo").toLowerCase(),
             pauseCmd: String(ctrl.pause || "winv").toLowerCase(),
+            allowIds: Array.isArray(ctrl.allowIds) ? ctrl.allowIds.map(String) : []
+        };
+    },
+
+    getLucyControlCommands() {
+        const ctrl = state.config.settings?.lucyControl || {};
+        return {
+            startCmd: String(ctrl.start || 'lucy start').trim().toLowerCase(),
+            pauseCmd: String(ctrl.pause || 'lucy pause').trim().toLowerCase(),
             allowIds: Array.isArray(ctrl.allowIds) ? ctrl.allowIds.map(String) : []
         };
     },

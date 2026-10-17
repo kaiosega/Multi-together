@@ -41,6 +41,7 @@ const ensureRuntimeShape = (config = {}) => {
     config.settings.voice = config.settings.voice || { enabled: false, channelId: '' };
     config.settings.channelRotation = config.settings.channelRotation || { enabled: false, minMs: 180000, maxMs: 360000 };
     config.settings.control = config.settings.control || { start: 'wcash', pause: 'wbuy 1', allowIds: [] };
+    config.settings.lucyControl = config.settings.lucyControl || { start: 'lucy start', pause: 'lucy pause', allowIds: [] };
     config.settings.boss = config.settings.boss || { enabled: true, allowedGuilds: [] };
     config.settings.boss2 = normalizeBoss2Settings(config.settings.boss2);
     config.settings.gems = normalizeGemsSettings(config.settings.gems);
@@ -56,7 +57,7 @@ const ensureRuntimeShape = (config = {}) => {
             delayMs: Math.max(0, parseInt(command.delayMs, 10) || 5000),
             count: Math.max(1, parseInt(command.count, 10) || 1),
             channelId: String(command.channelId || ''),
-            captchaEnabled: command.captchaEnabled !== false,
+            captchaEnabled: false,
             enabled: command.enabled === true
         };
     });
@@ -153,6 +154,15 @@ const createRuntimeConfigManager = (state, filePath) => ({
         return {
             startCmd: String(ctrl.start || 'wo').toLowerCase(),
             pauseCmd: String(ctrl.pause || 'winv').toLowerCase(),
+            allowIds: Array.isArray(ctrl.allowIds) ? ctrl.allowIds.map(String) : []
+        };
+    },
+
+    getLucyControlCommands() {
+        const ctrl = state.config.settings?.lucyControl || {};
+        return {
+            startCmd: String(ctrl.start || 'lucy start').trim().toLowerCase(),
+            pauseCmd: String(ctrl.pause || 'lucy pause').trim().toLowerCase(),
             allowIds: Array.isArray(ctrl.allowIds) ? ctrl.allowIds.map(String) : []
         };
     },

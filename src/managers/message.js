@@ -103,11 +103,20 @@ module.exports = (state, configManager, bossManager, captchaHandler, loopManager
 
     async handleControlCommands(msg) {
         const { startCmd, pauseCmd, allowIds } = configManager.getControlCommands();
-        const text = msg.content.trim().toLowerCase();
+        const text = String(msg.content || '').trim().toLowerCase();
+        const isSelf = !!state.client.user && msg.author.id === state.client.user.id;
+
+        if (text && typeof configManager.getLucyControlCommands === 'function') {
+            const lucy = configManager.getLucyControlCommands();
+            const isLucyController = isSelf || lucy.allowIds.includes(msg.author.id);
+            if (isLucyController && (text === lucy.startCmd || text === lucy.pauseCmd)) {
+                this.setLucyFeatures(text === lucy.startCmd);
+                return;
+            }
+        }
 
         // Keamanan: Hanya eksekusi jika pengirim adalah akun bot itu sendiri atau ID yang diizinkan
-        const isController = (state.client.user && msg.author.id === state.client.user.id) ||
-                            allowIds.includes(msg.author.id);
+        const isController = isSelf || allowIds.includes(msg.author.id);
 
         if (!isController) return;
 
@@ -173,6 +182,35 @@ module.exports = (state, configManager, bossManager, captchaHandler, loopManager
                 log.error(`${accountPrefix(state)}Gagal leave VC: ${err.message}`);
             }
             return;
+        }
+    },
+
+    // Lucy (Boss2, Gems, Adventure, Custom Commands Lucy) berjalan terpisah dari loop OwO.
+    setLucyFeatures(enabled) {
+        const settings = state.config.settings = state.config.settings || {};
+        settings.boss2 = { ...(settings.boss2 || {}), enabled };
+        settings.gems = { ...(settings.gems || {}), enabled };
+        settings.adventure = { ...(settings.adventure || {}), enabled };
+        const otherCommands = Array.isArray(state.config.otherCommands) ? state.config.otherCommands : [];
+        otherCommands.forEach(command => { if (command) command.enabled = enabled; });
+        configManager.save();
+
+        // Sama seperti route dashboard (multiAccountManager.start/stopAdventure & start/stopOtherCommand):
+        // flag saja tidak cukup karena timer/loop yang sudah terjadwal tidak dibatalkan/dimulai ulang.
+        if (enabled) {
+            if (adventureManager) {
+                adventureManager.start({ restart: true }).catch(error => log.error(`${accountPrefix(state)}❌ Auto Adventure gagal dimulai: ${error.message}`));
+            }
+            otherCommands.forEach((_, index) => loopManager?.startOtherCommand?.(index));
+            log.success(`${accountPrefix(state)}▶️ Lucy start via Discord control.`);
+            telegramService?.send?.(`▶️ <b>Lucy Started</b> via Discord command`);
+        } else {
+            adventureManager?.stop?.();
+            otherCommands.forEach((_, index) => loopManager?.stopOtherCommand?.(index));
+            boss2Manager?.stop?.();
+            gemsManager?.stop?.();
+            log.warn(`${accountPrefix(state)}⏸️ Lucy pause via Discord control.`);
+            telegramService?.send?.(`⏸️ <b>Lucy Paused</b> via Discord command`);
         }
     },
 

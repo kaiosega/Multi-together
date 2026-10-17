@@ -95,6 +95,7 @@ const createGemsManager = (state, configManager, commandSender) => {
         awaitingSince: 0,
         channelId: '',
         lootboxOpens: 0,
+        exhausted: false,
         recheckTimer: null,
         timers: new Set()
     };
@@ -154,6 +155,12 @@ const createGemsManager = (state, configManager, commandSender) => {
             if (names.length === 0) return null;
 
             if (isTriggerMessage(text, settings, names)) {
+                if (gems.exhausted && gems.recheckTimer) {
+                    return 'paused';
+                }
+                if (gems.awaitingInventory && Date.now() - gems.awaitingSince <= settings.inventoryTimeoutMs) {
+                    return 'pending';
+                }
                 log.info(`${prefix()}Gems habis terdeteksi. Cek inventaris...`);
                 cancelRecheck();
                 gems.lootboxOpens = 0;
@@ -210,7 +217,8 @@ const createGemsManager = (state, configManager, commandSender) => {
             }
 
             if (action.type === 'missing') {
-                log.warn(`${prefix()}Gems tidak lengkap (kurang: ${action.missing.join(', ')}). Cek ulang tiap ${settings.recheckMinutes} menit.`);
+                gems.exhausted = true;
+                log.warn(`${prefix()}Gems tidak lengkap (kurang: ${action.missing.join(', ')}) dan lootbox \`${settings.lootboxItem}\` habis. Trigger diabaikan, cek ulang tiap ${settings.recheckMinutes} menit.`);
                 this.scheduleRecheck(settings);
                 return 'missing';
             }
@@ -218,6 +226,7 @@ const createGemsManager = (state, configManager, commandSender) => {
             const sent = await this.sendCommand(action.command, 'Gems Use', settings);
             if (sent) {
                 cancelRecheck();
+                gems.exhausted = false;
                 log.success(`${prefix()}✅ Pakai gems: ${action.items.join(' ')}. Menunggu gems habis lagi...`);
             } else {
                 this.scheduleRecheck(settings);
@@ -242,6 +251,7 @@ const createGemsManager = (state, configManager, commandSender) => {
             gems.timers.clear();
             gems.recheckTimer = null;
             gems.awaitingInventory = false;
+            gems.exhausted = false;
             gems.lootboxOpens = 0;
         }
     };

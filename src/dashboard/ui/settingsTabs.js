@@ -121,7 +121,7 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
         `;
     }
 
-    function renderAdvancedSettings({ config, huntbot, control, rotation, boss, boss2, gems = {}, adventure, msgFilter, messageDebug, voice, captchaConfig, nopechaKey, twoCaptchaKey, fallbackSolvers }) {
+    function renderAdvancedSettings({ config, huntbot, control, rotation, boss, msgFilter, messageDebug, voice, captchaConfig, nopechaKey, twoCaptchaKey, fallbackSolvers }) {
         return `
                     <div id="tab-notifications" class="tab-content">
                         <div class="category-heading">
@@ -138,40 +138,6 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
                             <input type="text" name="tgChat" value="${config.settings.telegram.chatId || ''}" placeholder="Chat ID">
 
                         </div>
-                    </div>
-
-                    <div id="tab-other" class="tab-content">
-                        <div class="category-heading">
-                            <div>
-                                <span class="section-label">Advanced / Add-ons</span>
-                                <h3>🧩 OTHER</h3>
-                            </div>
-                        </div>
-                        <div class="input-hint">Setiap slot dikirim ke channel pilihannya sendiri. Start menjalankan sejumlah pengiriman yang diatur; Stop membatalkan slot tersebut.</div>
-                        ${(config.otherCommands || []).map((command, index) => {
-                            const slot = index + 1;
-                            return `
-                                <div class="card">
-                                    <label>Custom Command ${slot}</label>
-                                    <label>Command Text</label>
-                                    <input type="text" name="other${slot}Text" value="${escapeHtml(command.text)}" placeholder="Contoh: !test">
-                                    <div class="row">
-                                        <div class="col"><label>Delay / Jeda (detik)</label><input type="number" min="0" step="1" name="other${slot}Delay" value="${Math.floor((command.delayMs || 0) / 1000)}"></div>
-                                        <div class="col"><label>Jumlah Pengiriman</label><input type="number" min="1" step="1" name="other${slot}Count" value="${command.count || 1}"></div>
-                                    </div>
-                                    <label>Target Channel</label>
-                                    <input type="text" name="other${slot}Channel" value="${escapeHtml(command.channelId)}" placeholder="Discord Channel ID">
-                                    <div class="toggle-row">
-                                        <span>🛡️ CAPTCHA: ${command.captchaEnabled !== false ? 'ON' : 'OFF'}</span>
-                                        <input type="checkbox" name="other${slot}Captcha" ${command.captchaEnabled !== false ? 'checked' : ''}>
-                                    </div>
-                                    <div class="action-group" style="margin-top: 12px;">
-                                        <button type="submit" name="action" value="otherCommandStart${slot}" class="btn btn-start">▶ START</button>
-                                        <button type="submit" name="action" value="otherCommandStop${slot}" class="btn btn-pause">⏸ STOP</button>
-                                        <span class="input-hint">${command.enabled ? '▶ Menunggu / berjalan' : '⏹ Berhenti'}</span>
-                                    </div>
-                                </div>`;
-                        }).join('')}
                     </div>
 
                     <div id="tab-captcha" class="tab-content">
@@ -319,7 +285,7 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
                         <div class="category-heading">
                             <div>
                                 <span class="section-label">Advanced / Add-ons</span>
-                                <h3>🤖 Automasi</h3>
+                                <h3>🤖 Automasi OwO</h3>
                             </div>
 
                         </div>
@@ -366,93 +332,13 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
                         </div>
 
                         <div class="card">
-                            <label>🐉 BOSS AUTOMATION</label>
+                            <label>🐉 BOSS AUTOMATION (OwO)</label>
                             <div class="toggle-row">
                                 <span>Enable Auto-Boss</span>
                                 <input type="checkbox" name="bossEnabled" ${boss.enabled ? 'checked' : ''}>
                             </div>
                             <label>Allowed Guilds</label>
                             <input type="text" name="bossGuilds" value="${(boss.allowedGuilds || []).join(',')}" placeholder="Guild ID">
-                        </div>
-
-                        <div class="card">
-                            <label>🐲 AUTO BOSS2 (DRAFT)</label>
-                            <div class="input-hint">Saat pesan "Guild Boss Telah Muncul" terdeteksi dan tombol Fight aktif, bot otomatis Fight. Berhenti saat boss dikalahkan/kabur (tombol mati), lalu mencatat waktu "Boss baru". Kosongkan filter untuk semua.</div>
-                            <div class="toggle-row">
-                                <span>Enable Auto Boss2</span>
-                                <input type="checkbox" name="boss2Enabled" ${boss2.enabled ? 'checked' : ''}>
-                            </div>
-                            <label>Allowed Guilds</label>
-                            <input type="text" name="boss2Guilds" value="${escapeHtml((boss2.allowedGuilds || []).join(','))}" placeholder="Guild ID">
-                            <label>Allowed Channels</label>
-                            <input type="text" name="boss2ChannelIds" value="${escapeHtml((boss2.channelIds || []).join(','))}" placeholder="Channel ID">
-                            <label>Bot Author IDs</label>
-                            <input type="text" name="boss2BotIds" value="${escapeHtml((boss2.botIds || []).join(','))}" placeholder="User ID bot boss">
-                            <label>Teks Boss Muncul</label>
-                            <input type="text" name="boss2AppearText" value="${escapeHtml(boss2.appearText || '')}" placeholder="Guild Boss Telah Muncul">
-                            <label>Teks Boss Dikalahkan</label>
-                            <input type="text" name="boss2DefeatedText" value="${escapeHtml(boss2.defeatedText || '')}" placeholder="Boss Telah Dikalahkan">
-                            <label>Button Custom ID</label>
-                            <input type="text" name="boss2ButtonId" value="${escapeHtml(boss2.buttonId || '')}" placeholder="raid:fight">
-                            <label>Jumlah Fight per Boss (1-3)</label>
-                            <input type="number" min="1" max="3" name="boss2FightsPerBoss" value="${boss2.fightsPerBoss ?? 3}" placeholder="3">
-                            <label>Jeda sebelum tiap Fight (ms)</label>
-                            <div class="row">
-                                <div class="col"><input type="number" min="0" name="boss2DelayMin" value="${boss2.delayMinMs ?? 1000}" placeholder="Min"></div>
-                                <div class="col"><input type="number" min="0" name="boss2DelayMax" value="${boss2.delayMaxMs ?? 1000}" placeholder="Max"></div>
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <label>💎 AUTO USE GEMS</label>
-                            <div class="input-hint">Saat pesan "| nama** menghabiskan 5 lucent" terdeteksi: kirim cek inventaris. Jika ada item lootbox → buka lootbox lalu cek lagi. Jika gems wajib lengkap → pakai (gems opsional ikut dipakai jika ada). Jika tidak lengkap → cek inventaris ulang tiap X menit sampai lengkap.</div>
-                            <div class="toggle-row">
-                                <span>Enable Auto Use Gems</span>
-                                <input type="checkbox" name="gemsEnabled" ${gems.enabled ? 'checked' : ''}>
-                            </div>
-                            <label>Channel ID (kosong = channel pesan trigger)</label>
-                            <input type="text" name="gemsChannelId" value="${escapeHtml(gems.channelId || '')}" placeholder="Channel ID">
-                            <label>Bot Author IDs (kosong = semua)</label>
-                            <input type="text" name="gemsBotIds" value="${escapeHtml((gems.botIds || []).join(','))}" placeholder="User ID bot Lucy">
-                            <label>Nama Akun (kosong = otomatis dari username/nickname)</label>
-                            <input type="text" name="gemsAccountName" value="${escapeHtml(gems.accountName || '')}" placeholder="neozen">
-                            <label>Teks Trigger Gems Habis</label>
-                            <input type="text" name="gemsTriggerText" value="${escapeHtml(gems.triggerText || '')}" placeholder="menghabiskan 5 <:lucent:1523362382355759266>">
-                            <label>Command Cek Inventaris</label>
-                            <input type="text" name="gemsInventoryCommand" value="${escapeHtml(gems.inventoryCommand || '')}" placeholder="linv">
-                            <div class="row">
-                                <div class="col"><label>Kode Item Lootbox</label><input type="text" name="gemsLootboxItem" value="${escapeHtml(gems.lootboxItem || '')}" placeholder="049"></div>
-                                <div class="col"><label>Command Lootbox</label><input type="text" name="gemsLootboxCommand" value="${escapeHtml(gems.lootboxCommand || '')}" placeholder="llb f all"></div>
-                            </div>
-                            <div class="row">
-                                <div class="col"><label>Gems Wajib</label><input type="text" name="gemsRequired" value="${escapeHtml((gems.requiredGems || []).join(','))}" placeholder="57,71,78"></div>
-                                <div class="col"><label>Gems Opsional</label><input type="text" name="gemsOptional" value="${escapeHtml((gems.optionalGems || []).join(','))}" placeholder="85"></div>
-                            </div>
-                            <label>Command Pakai Gems</label>
-                            <input type="text" name="gemsUseCommand" value="${escapeHtml(gems.useCommand || '')}" placeholder="luse">
-                            <label>Cek Ulang Inventaris (menit)</label>
-                            <input type="number" min="1" name="gemsRecheckMinutes" value="${gems.recheckMinutes ?? 5}" placeholder="5">
-                            <label>Jeda sebelum kirim command (ms)</label>
-                            <div class="row">
-                                <div class="col"><input type="number" min="0" name="gemsDelayMin" value="${gems.delayMinMs ?? 1500}" placeholder="Min"></div>
-                                <div class="col"><input type="number" min="0" name="gemsDelayMax" value="${gems.delayMaxMs ?? 3000}" placeholder="Max"></div>
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <label>🗺️ AUTO ADVENTURE</label>
-                            <div class="input-hint">Memproses response target hanya pada guild dan channel yang ditentukan.</div>
-                            <label>Target Author ID</label>
-                            <input type="text" name="adventureTargetId" value="${escapeHtml(adventure.targetId || '')}" placeholder="Discord User ID">
-                            <label>Adventure Channel ID</label>
-                            <input type="text" name="adventureChannelId" value="${escapeHtml(adventure.channelId || '')}" placeholder="Channel ID">
-                            <label>Adventure Guild ID</label>
-                            <input type="text" name="adventureGuildId" value="${escapeHtml(adventure.guildId || '')}" placeholder="Guild ID">
-                            <div class="action-group" style="margin-top: 12px;">
-                                <button type="submit" name="action" value="adventureStart" class="btn btn-start">▶ AUTO ADVENTURE ON</button>
-                                <button type="submit" name="action" value="adventureStop" class="btn btn-pause">⏸ AUTO ADVENTURE OFF</button>
-                            </div>
-                            <span class="input-hint">${adventure.enabled ? '▶ Auto Adventure aktif' : '⏹ Auto Adventure nonaktif'}</span>
                         </div>
 
                         <div class="card">
@@ -507,6 +393,173 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
         `;
     }
 
+    function renderLucySettings({ config, boss2 = {}, gems = {}, adventure = {}, lucyControl = {} }) {
+        return `
+                    <div id="tab-lucy-commands" class="tab-content">
+                        <div class="category-heading">
+                            <div>
+                                <span class="section-label">Lucy</span>
+                                <h3>🧩 Custom Commands Lucy</h3>
+                            </div>
+                        </div>
+                        <div class="input-hint">Setiap slot dikirim ke channel pilihannya sendiri. Start menjalankan sejumlah pengiriman yang diatur; Stop membatalkan slot tersebut.</div>
+                        ${(config.otherCommands || []).map((command, index) => {
+                            const slot = index + 1;
+                            return `
+                                <div class="card">
+                                    <label>Custom Command Lucy ${slot}</label>
+                                    <label>Command Text</label>
+                                    <input type="text" name="other${slot}Text" value="${escapeHtml(command.text)}" placeholder="Contoh: !test">
+                                    <div class="row">
+                                        <div class="col"><label>Delay / Jeda (detik)</label><input type="number" min="0" step="1" name="other${slot}Delay" value="${Math.floor((command.delayMs || 0) / 1000)}"></div>
+                                        <div class="col"><label>Jumlah Pengiriman</label><input type="number" min="1" step="1" name="other${slot}Count" value="${command.count || 1}"></div>
+                                    </div>
+                                    <label>Target Channel</label>
+                                    <input type="text" name="other${slot}Channel" value="${escapeHtml(command.channelId)}" placeholder="Discord Channel ID">
+                                    <div class="action-group" style="margin-top: 12px;">
+                                        <button type="submit" name="action" value="otherCommandStart${slot}" class="btn btn-start">▶ START</button>
+                                        <button type="submit" name="action" value="otherCommandStop${slot}" class="btn btn-pause">⏸ STOP</button>
+                                        <span class="input-hint">${command.enabled ? '▶ Menunggu / berjalan' : '⏹ Berhenti'}</span>
+                                    </div>
+                                </div>`;
+                        }).join('')}
+                    </div>
+
+                    <div id="tab-lucy-boss2" class="tab-content">
+                        <div class="category-heading">
+                            <div>
+                                <span class="section-label">Lucy</span>
+                                <h3>🐲 Auto Boss2</h3>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <label>🐲 AUTO BOSS2 (DRAFT)</label>
+                            <div class="input-hint">Saat pesan "Guild Boss Telah Muncul" terdeteksi dan tombol Fight aktif, bot otomatis Fight. Berhenti saat boss dikalahkan/kabur (tombol mati), lalu mencatat waktu "Boss baru". Kosongkan filter untuk semua.</div>
+                            <div class="toggle-row">
+                                <span>Enable Auto Boss2</span>
+                                <input type="checkbox" name="boss2Enabled" ${boss2.enabled ? 'checked' : ''}>
+                            </div>
+                            <label>Allowed Guilds</label>
+                            <input type="text" name="boss2Guilds" value="${escapeHtml((boss2.allowedGuilds || []).join(','))}" placeholder="Guild ID">
+                            <label>Allowed Channels</label>
+                            <input type="text" name="boss2ChannelIds" value="${escapeHtml((boss2.channelIds || []).join(','))}" placeholder="Channel ID">
+                            <label>Bot Author IDs</label>
+                            <input type="text" name="boss2BotIds" value="${escapeHtml((boss2.botIds || []).join(','))}" placeholder="User ID bot boss">
+                            <label>Teks Boss Muncul</label>
+                            <input type="text" name="boss2AppearText" value="${escapeHtml(boss2.appearText || '')}" placeholder="Guild Boss Telah Muncul">
+                            <label>Teks Boss Dikalahkan</label>
+                            <input type="text" name="boss2DefeatedText" value="${escapeHtml(boss2.defeatedText || '')}" placeholder="Boss Telah Dikalahkan">
+                            <label>Button Custom ID</label>
+                            <input type="text" name="boss2ButtonId" value="${escapeHtml(boss2.buttonId || '')}" placeholder="raid:fight">
+                            <label>Jumlah Fight per Boss (1-3)</label>
+                            <input type="number" min="1" max="3" name="boss2FightsPerBoss" value="${boss2.fightsPerBoss ?? 3}" placeholder="3">
+                            <label>Jeda sebelum tiap Fight (ms)</label>
+                            <div class="row">
+                                <div class="col"><input type="number" min="0" name="boss2DelayMin" value="${boss2.delayMinMs ?? 1000}" placeholder="Min"></div>
+                                <div class="col"><input type="number" min="0" name="boss2DelayMax" value="${boss2.delayMaxMs ?? 1000}" placeholder="Max"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-lucy-gems" class="tab-content">
+                        <div class="category-heading">
+                            <div>
+                                <span class="section-label">Lucy</span>
+                                <h3>💎 Auto Use Gems</h3>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <label>💎 AUTO USE GEMS</label>
+                            <div class="input-hint">Saat pesan "| nama** menghabiskan 5 lucent" terdeteksi: kirim cek inventaris. Jika ada item lootbox → buka lootbox lalu cek lagi. Jika gems wajib lengkap → pakai (gems opsional ikut dipakai jika ada). Jika tidak lengkap → cek inventaris ulang tiap X menit sampai lengkap.</div>
+                            <div class="toggle-row">
+                                <span>Enable Auto Use Gems</span>
+                                <input type="checkbox" name="gemsEnabled" ${gems.enabled ? 'checked' : ''}>
+                            </div>
+                            <label>Channel ID (kosong = channel pesan trigger)</label>
+                            <input type="text" name="gemsChannelId" value="${escapeHtml(gems.channelId || '')}" placeholder="Channel ID">
+                            <label>Bot Author IDs (kosong = semua)</label>
+                            <input type="text" name="gemsBotIds" value="${escapeHtml((gems.botIds || []).join(','))}" placeholder="User ID bot Lucy">
+                            <label>Nama Akun (kosong = otomatis dari username/nickname)</label>
+                            <input type="text" name="gemsAccountName" value="${escapeHtml(gems.accountName || '')}" placeholder="neozen">
+                            <label>Teks Trigger Gems Habis</label>
+                            <input type="text" name="gemsTriggerText" value="${escapeHtml(gems.triggerText || '')}" placeholder="menghabiskan 5 <:lucent:1523362382355759266>">
+                            <label>Command Cek Inventaris</label>
+                            <input type="text" name="gemsInventoryCommand" value="${escapeHtml(gems.inventoryCommand || '')}" placeholder="linv">
+                            <div class="row">
+                                <div class="col"><label>Kode Item Lootbox</label><input type="text" name="gemsLootboxItem" value="${escapeHtml(gems.lootboxItem || '')}" placeholder="049"></div>
+                                <div class="col"><label>Command Lootbox</label><input type="text" name="gemsLootboxCommand" value="${escapeHtml(gems.lootboxCommand || '')}" placeholder="llb f all"></div>
+                            </div>
+                            <div class="row">
+                                <div class="col"><label>Gems Wajib</label><input type="text" name="gemsRequired" value="${escapeHtml((gems.requiredGems || []).join(','))}" placeholder="57,71,78"></div>
+                                <div class="col"><label>Gems Opsional</label><input type="text" name="gemsOptional" value="${escapeHtml((gems.optionalGems || []).join(','))}" placeholder="85"></div>
+                            </div>
+                            <label>Command Pakai Gems</label>
+                            <input type="text" name="gemsUseCommand" value="${escapeHtml(gems.useCommand || '')}" placeholder="luse">
+                            <label>Jeda Cek Inventaris saat Gems &amp; Lootbox Habis (menit)</label>
+                            <input type="number" min="1" name="gemsRecheckMinutes" value="${gems.recheckMinutes ?? 5}" placeholder="5">
+                            <label>Jeda sebelum kirim command (ms)</label>
+                            <div class="row">
+                                <div class="col"><input type="number" min="0" name="gemsDelayMin" value="${gems.delayMinMs ?? 1500}" placeholder="Min"></div>
+                                <div class="col"><input type="number" min="0" name="gemsDelayMax" value="${gems.delayMaxMs ?? 3000}" placeholder="Max"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-lucy-adventure" class="tab-content">
+                        <div class="category-heading">
+                            <div>
+                                <span class="section-label">Lucy</span>
+                                <h3>🗺️ Auto Adventure</h3>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <label>🗺️ AUTO ADVENTURE</label>
+                            <div class="input-hint">Memproses response target hanya pada guild dan channel yang ditentukan.</div>
+                            <label>Target Author ID</label>
+                            <input type="text" name="adventureTargetId" value="${escapeHtml(adventure.targetId || '')}" placeholder="Discord User ID">
+                            <label>Adventure Channel ID</label>
+                            <input type="text" name="adventureChannelId" value="${escapeHtml(adventure.channelId || '')}" placeholder="Channel ID">
+                            <label>Adventure Guild ID</label>
+                            <input type="text" name="adventureGuildId" value="${escapeHtml(adventure.guildId || '')}" placeholder="Guild ID">
+                            <div class="action-group" style="margin-top: 12px;">
+                                <button type="submit" name="action" value="adventureStart" class="btn btn-start">▶ AUTO ADVENTURE ON</button>
+                                <button type="submit" name="action" value="adventureStop" class="btn btn-pause">⏸ AUTO ADVENTURE OFF</button>
+                            </div>
+                            <span class="input-hint">${adventure.enabled ? '▶ Auto Adventure aktif' : '⏹ Auto Adventure nonaktif'}</span>
+                        </div>
+                    </div>
+
+                    <div id="tab-lucy-control" class="tab-content">
+                        <div class="category-heading">
+                            <div>
+                                <span class="section-label">Lucy</span>
+                                <h3>🎮 Kontrol Lucy</h3>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <label>🎮 LUCY DISCORD CONTROL</label>
+                            <div class="input-hint">Kirim kata ini di Discord (dari akun sendiri atau User ID yang diizinkan) untuk menjalankan/menjeda semua fitur Lucy: Custom Commands Lucy, Auto Boss2, Auto Use Gems, dan Auto Adventure. Tidak memengaruhi loop OwO.</div>
+                            <div class="row">
+                                <div class="col">
+                                    <label>Start Word</label>
+                                    <input type="text" name="lucyCtrlStart" value="${escapeHtml(lucyControl.start || 'lucy start')}" placeholder="lucy start">
+                                </div>
+                                <div class="col">
+                                    <label>Pause Word</label>
+                                    <input type="text" name="lucyCtrlPause" value="${escapeHtml(lucyControl.pause || 'lucy pause')}" placeholder="lucy pause">
+                                </div>
+                            </div>
+                            <label>Allowed User IDs</label>
+                            <input type="text" name="lucyCtrlAllowIds" value="${escapeHtml((lucyControl.allowIds || []).join(','))}" placeholder="User ID">
+                        </div>
+                    </div>
+        `;
+    }
+
     function renderSettingsTabs(context) {
         return `
                     <div class="settings-nav">
@@ -523,21 +576,29 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
                             <div class="settings-menu-group">
                                 <span>Advanced / Add-ons</span>
                                 <button type="button" class="settings-menu-item" data-menu-label="Notifikasi" onclick="switchTab(event, 'tab-notifications')">📱 Notifikasi</button>
-                                <button type="button" class="settings-menu-item" data-menu-label="OTHER" onclick="switchTab(event, 'tab-other')">🧩 OTHER</button>
                                 <button type="button" class="settings-menu-item" data-menu-label="Captcha" onclick="switchTab(event, 'tab-captcha')">🛡️ Captcha</button>
                                 <button type="button" class="settings-menu-item" data-menu-label="Integrasi Sistem" onclick="switchTab(event, 'tab-integrations')">🔌 Integrasi Sistem</button>
                                 <button type="button" class="settings-menu-item" data-menu-label="Safety & Filter" onclick="switchTab(event, 'tab-safety')">🛡️ Safety & Filter</button>
                                 <button type="button" class="settings-menu-item" data-menu-label="Debug Pesan" onclick="switchTab(event, 'tab-message-debug')">🔎 Debug Pesan</button>
-                                <button type="button" class="settings-menu-item" data-menu-label="Automasi" onclick="switchTab(event, 'tab-automation')">🤖 Automasi</button>
+                                <button type="button" class="settings-menu-item" data-menu-label="Automasi OwO" onclick="switchTab(event, 'tab-automation')">🤖 Automasi OwO</button>
                                 <button type="button" class="settings-menu-item" data-menu-label="Kontrol & Sistem" onclick="switchTab(event, 'tab-control')">🎮 Kontrol & Sistem</button>
+                            </div>
+                            <div class="settings-menu-group">
+                                <span>Lucy</span>
+                                <button type="button" class="settings-menu-item" data-menu-label="Custom Commands Lucy" onclick="switchTab(event, 'tab-lucy-commands')">🧩 Custom Commands Lucy</button>
+                                <button type="button" class="settings-menu-item" data-menu-label="Auto Boss2" onclick="switchTab(event, 'tab-lucy-boss2')">🐲 Auto Boss2</button>
+                                <button type="button" class="settings-menu-item" data-menu-label="Auto Use Gems" onclick="switchTab(event, 'tab-lucy-gems')">💎 Auto Use Gems</button>
+                                <button type="button" class="settings-menu-item" data-menu-label="Auto Adventure" onclick="switchTab(event, 'tab-lucy-adventure')">🗺️ Auto Adventure</button>
+                                <button type="button" class="settings-menu-item" data-menu-label="Kontrol Lucy" onclick="switchTab(event, 'tab-lucy-control')">🎮 Kontrol Lucy</button>
                             </div>
                         </div>
                     </div>
 
 ${renderMainSettings(context)}
 ${renderAdvancedSettings(context)}
+${renderLucySettings(context)}
         `;
     }
 
-    return { renderMainSettings, renderAdvancedSettings, renderSettingsTabs };
+    return { renderMainSettings, renderAdvancedSettings, renderLucySettings, renderSettingsTabs };
 };

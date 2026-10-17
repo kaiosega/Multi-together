@@ -30,6 +30,7 @@ module.exports = function createConfigManager({ configPath, fileService, CONSTAN
 
         config.settings.twoCaptchaKey = config.settings.twoCaptchaKey || "";
         config.settings.control = config.settings.control || { start: 'wcash', pause: 'wbuy 1', allowIds: [] };
+        config.settings.lucyControl = config.settings.lucyControl || { start: 'lucy start', pause: 'lucy pause', allowIds: [] };
         config.settings.channelRotation = config.settings.channelRotation || { enabled: false, minMs: 180000, maxMs: 360000 };
         config.settings.boss = config.settings.boss || { enabled: true, allowedGuilds: [] };
         config.settings.boss2 = normalizeBoss2Settings(config.settings.boss2);
@@ -47,7 +48,7 @@ module.exports = function createConfigManager({ configPath, fileService, CONSTAN
                 delayMs: Math.max(0, this.toInt(command.delayMs, 5000)),
                 count: Math.max(1, this.toInt(command.count, 1)),
                 channelId: String(command.channelId || ''),
-                captchaEnabled: command.captchaEnabled !== false,
+                captchaEnabled: false,
                 enabled: command.enabled === true
             };
         });
@@ -101,7 +102,7 @@ module.exports = function createConfigManager({ configPath, fileService, CONSTAN
                 delayMs: Math.max(0, this.toInt(body[`other${index + 1}Delay`], Math.floor((current.delayMs || 5000) / 1000))) * 1000,
                 count: Math.max(1, this.toInt(body[`other${index + 1}Count`], current.count || 1)),
                 channelId: String(body[`other${index + 1}Channel`] || '').trim(),
-                captchaEnabled: this.toBool(body[`other${index + 1}Captcha`]),
+                captchaEnabled: false,
                 enabled: current.enabled === true
             };
         });
@@ -126,6 +127,12 @@ module.exports = function createConfigManager({ configPath, fileService, CONSTAN
         config.settings.control.start = body.ctrlStart || 'wcash';
         config.settings.control.pause = body.ctrlPause || 'wbuy 1';
         config.settings.control.allowIds = this.toArray(body.ctrlAllowIds);
+
+        config.settings.lucyControl = {
+            start: String(body.lucyCtrlStart || '').trim() || 'lucy start',
+            pause: String(body.lucyCtrlPause || '').trim() || 'lucy pause',
+            allowIds: this.toArray(body.lucyCtrlAllowIds)
+        };
 
         config.settings.channelRotation.enabled = this.toBool(body.crEnabled);
         config.settings.channelRotation.minMs = this.toInt(body.crMin, 180000);

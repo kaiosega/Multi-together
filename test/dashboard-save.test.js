@@ -97,7 +97,7 @@ test('dashboard renders an accessible save status toast', async () => {
     });
 });
 
-test('OTHER Custom Command saves its independent CAPTCHA setting', async () => {
+test('Lucy Custom Commands never enable CAPTCHA, even if a legacy field is submitted', async () => {
     await withDashboard(async (url, baseDir) => {
         const response = await fetch(`${url}/save`, {
             method: 'POST',
@@ -118,8 +118,53 @@ test('OTHER Custom Command saves its independent CAPTCHA setting', async () => {
 
         assert.equal(response.status, 200);
         const savedConfig = JSON.parse(fs.readFileSync(path.join(baseDir, 'config.json'), 'utf8'));
-        assert.equal(savedConfig.otherCommands[0].captchaEnabled, true);
-        assert.equal(savedConfig.otherCommands[1].captchaEnabled, false);
+        assert.equal(savedConfig.otherCommands[0].text, '!test');
+        assert.deepEqual(savedConfig.otherCommands.map(command => command.captchaEnabled), [false, false, false]);
+    });
+});
+
+test('POST /save persists Lucy Discord control and the dashboard renders the Lucy menu', async () => {
+    await withDashboard(async (url, baseDir) => {
+        const response = await fetch(`${url}/save`, {
+            method: 'POST',
+            headers: {
+                Authorization: authHeader(),
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                Accept: 'application/json'
+            },
+            body: new URLSearchParams({
+                action: 'save',
+                ctrlStart: 'wcash',
+                lucyCtrlStart: 'lgo',
+                lucyCtrlPause: 'lstop',
+                lucyCtrlAllowIds: '111, 222'
+            })
+        });
+
+        assert.equal(response.status, 200);
+        const savedConfig = JSON.parse(fs.readFileSync(path.join(baseDir, 'config.json'), 'utf8'));
+        assert.deepEqual(savedConfig.settings.lucyControl, { start: 'lgo', pause: 'lstop', allowIds: ['111', '222'] });
+        assert.equal(savedConfig.settings.control.start, 'wcash');
+
+        const page = await (await fetch(url, { headers: { Authorization: authHeader() } })).text();
+        assert.match(page, /<span>Lucy<\/span>/);
+        for (const tabId of ['tab-lucy-commands', 'tab-lucy-boss2', 'tab-lucy-gems', 'tab-lucy-adventure', 'tab-lucy-control']) {
+            assert.match(page, new RegExp(`id="${tabId}"`));
+            assert.match(page, new RegExp(`switchTab\\(event, '${tabId}'\\)`));
+        }
+        assert.doesNotMatch(page, /tab-other/);
+        assert.doesNotMatch(page, /name="other1Captcha"/);
+        assert.match(page, /data-menu-label="Automasi OwO"/);
+        assert.match(page, /Custom Command Lucy 1/);
+        assert.match(page, /LUCY DISCORD CONTROL/);
+        assert.match(page, /name="lucyCtrlStart" value="lgo"/);
+        assert.match(page, /name="lucyCtrlAllowIds" value="111,222"/);
+        assert.match(page, /name="text1"/);
+
+        const automation = page.slice(page.indexOf('id="tab-automation"'), page.indexOf('id="tab-control"'));
+        assert.match(automation, /HUNTBOT AUTOMATION/);
+        assert.match(automation, /BOSS AUTOMATION \(OwO\)/);
+        assert.doesNotMatch(automation, /AUTO BOSS2|AUTO USE GEMS|AUTO ADVENTURE/);
     });
 });
 

@@ -12,6 +12,7 @@ function renderPage(config) {
 
         const huntbot = config.huntbot || {};
         const control = config.settings.control || {};
+        const lucyControl = config.settings.lucyControl || {};
         const rotation = config.settings.channelRotation || {};
         const boss = config.settings.boss || {};
         const boss2 = config.settings.boss2 || {};
@@ -89,6 +90,7 @@ function renderPage(config) {
                         custom2,
                         huntbot,
                         control,
+                        lucyControl,
                         rotation,
                         boss,
                         boss2,

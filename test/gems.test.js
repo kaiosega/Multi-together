@@ -85,6 +85,35 @@ test('incomplete gems schedule an inventory re-check every N minutes', async (t)
     manager.stop();
 });
 
+test('trigger is ignored while gems & lootbox are exhausted until the re-check pause elapses', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const { manager, sent, state } = setup();
+    await manager.handle(message(TRIGGER));
+    assert.equal(await manager.handle(message(inventory(['057']))), 'missing');
+    assert.equal(state.gems.exhausted, true);
+    assert.equal(await manager.handle(message(TRIGGER)), 'paused');
+    assert.equal(await manager.handle(message(TRIGGER)), 'paused');
+    assert.deepEqual(sent.map(([cmd]) => cmd), ['linv']);
+
+    t.mock.timers.tick(5 * 60000);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(sent.map(([cmd]) => cmd), ['linv', 'linv']);
+    assert.equal(await manager.handle(message(inventory(['057', '071', '078']))), 'use');
+    assert.equal(state.gems.exhausted, false);
+
+    assert.equal(await manager.handle(message(TRIGGER)), 'trigger');
+    assert.deepEqual(sent.map(([cmd]) => cmd), ['linv', 'linv', 'luse 57 71 78', 'linv']);
+    manager.stop();
+});
+
+test('duplicate trigger while waiting for inventory does not resend linv', async () => {
+    const { manager, sent } = setup();
+    await manager.handle(message(TRIGGER));
+    assert.equal(await manager.handle(message(TRIGGER)), 'pending');
+    assert.deepEqual(sent.map(([cmd]) => cmd), ['linv']);
+    manager.stop();
+});
+
 test('ignores other accounts, unsolicited inventories and disabled setting', async () => {
     const { manager, sent, state } = setup();
     assert.equal(await manager.handle(message('**🌱 | neozen2** menghabiskan 5 <:lucent:1523362382355759266>')), null);
