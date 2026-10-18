@@ -305,3 +305,49 @@ test('POST /save persists Auto Use Gems settings and the dashboard renders them'
         assert.match(page, /name="gemsLootboxCommand" value="llb f all"/);
     });
 });
+
+test('POST /save stores empty Lucy send count as infinite and persists Istirahat settings', async () => {
+    await withDashboard(async (url, baseDir) => {
+        const response = await fetch(`${url}/save`, {
+            method: 'POST',
+            headers: {
+                Authorization: authHeader(),
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                Accept: 'application/json'
+            },
+            body: new URLSearchParams({
+                action: 'save',
+                other1Text: '!a', other1Channel: '1', other1Delay: '5', other1Count: '',
+                other2Text: '!b', other2Channel: '2', other2Delay: '5', other2Count: '7',
+                restScheduleEnabled: 'on', restScheduleStart: '05:00', restScheduleEnd: '10:00',
+                restBudgetEnabled: 'on', restBudgetHours: '5', restBudgetMinSession: '20', restBudgetMaxSession: '45'
+            })
+        });
+
+        assert.equal(response.status, 200);
+        const savedConfig = JSON.parse(fs.readFileSync(path.join(baseDir, 'config.json'), 'utf8'));
+        assert.equal(savedConfig.otherCommands[0].count, 0);
+        assert.equal(savedConfig.otherCommands[1].count, 7);
+        assert.deepEqual(savedConfig.settings.rest, {
+            schedule: { enabled: true, start: '05:00', end: '10:00' },
+            budget: { enabled: true, maxMinutes: 300, minSessionMinutes: 20, maxSessionMinutes: 45 }
+        });
+
+        const page = await (await fetch(url, { headers: { Authorization: authHeader() } })).text();
+        assert.match(page, /name="other1Count" value="" placeholder="Kosong = ∞ Infinite"/);
+        assert.match(page, /name="other2Count" value="7"/);
+        assert.match(page, /id="tab-rest"/);
+        assert.match(page, /switchTab\(event, 'tab-rest'\)/);
+        assert.match(page, /name="restScheduleStart" value="05:00"/);
+        assert.match(page, /name="restBudgetHours" value="5"/);
+        assert.match(page, /id="restStatus"/);
+    });
+});
+
+test('GET /api/rest-status responds with an account list', async () => {
+    await withDashboard(async (url) => {
+        const response = await fetch(`${url}/api/rest-status`, { headers: { Authorization: authHeader() } });
+        assert.equal(response.status, 200);
+        assert.ok(Array.isArray((await response.json()).accounts));
+    });
+});

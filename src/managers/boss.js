@@ -171,6 +171,7 @@ module.exports = (state, configManager, telegramService) => ({
     async handle(msg) {
         const bossSettings = configManager.getBossSettings();
         if (!bossSettings.enabled) return;
+        if (state.rest?.active) return;
 
         if (!this.canFight(msg)) return;
         if (!msg.components?.length) return;

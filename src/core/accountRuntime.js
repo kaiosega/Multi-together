@@ -10,6 +10,8 @@ const { normalizeBoss2Settings } = createBoss2Manager;
 const createAdventureManager = require('../managers/adventure');
 const createGemsManager = require('../managers/gems');
 const { normalizeGemsSettings } = createGemsManager;
+const createRestManager = require('../managers/rest');
+const { normalizeRestSettings } = createRestManager;
 const createCaptchaHandler = require('../managers/captcha');
 const createCommandSender = require('../managers/command');
 const createLoopManager = require('../managers/loop');
@@ -22,7 +24,7 @@ const createClientManager = require('./client');
 const captchaSolver = require('../services/captchaSolver');
 const log = require('../../logger');
 const CONSTANTS = require('../constants');
-const { accountPrefix, safeJsonStringify } = require('../utils');
+const { accountPrefix, safeJsonStringify, normalizeSendCount } = require('../utils');
 
 const getAccountIdFromToken = (token) => {
     if (!token || typeof token !== 'string') return 'default';
@@ -45,6 +47,7 @@ const ensureRuntimeShape = (config = {}) => {
     config.settings.boss = config.settings.boss || { enabled: true, allowedGuilds: [] };
     config.settings.boss2 = normalizeBoss2Settings(config.settings.boss2);
     config.settings.gems = normalizeGemsSettings(config.settings.gems);
+    config.settings.rest = normalizeRestSettings(config.settings.rest);
     config.settings.adventure = config.settings.adventure || { enabled: false, targetId: '', channelId: '', guildId: '' };
     config.settings.messageFilter = config.settings.messageFilter || { enabled: true, channelIds: [], guildIds: [], debug: false, debugOnlyOwO: false };
     config.settings.messageDebug = config.settings.messageDebug || { enabled: false, targetId: '', channelId: '', guildId: '' };
@@ -55,7 +58,7 @@ const ensureRuntimeShape = (config = {}) => {
         return {
             text: String(command.text || ''),
             delayMs: Math.max(0, parseInt(command.delayMs, 10) || 5000),
-            count: Math.max(1, parseInt(command.count, 10) || 1),
+            count: normalizeSendCount(command.count),
             channelId: String(command.channelId || ''),
             captchaEnabled: false,
             enabled: command.enabled === true
@@ -183,6 +186,10 @@ const createRuntimeConfigManager = (state, filePath) => ({
         return normalizeGemsSettings(state.config.settings?.gems);
     },
 
+    getRestSettings() {
+        return normalizeRestSettings(state.config.settings?.rest);
+    },
+
     getAdventureSettings() {
         const adventure = state.config.settings?.adventure || {};
         return {
@@ -296,9 +303,10 @@ module.exports = function createAccountRuntime({ config, filePath, sharedStats }
     const originalLoopStartAll = loopManager.startAll.bind(loopManager);
     const originalLoopStopAll = loopManager.stopAll.bind(loopManager);
     loopManager.startAll = () => {
-        originalLoopStartAll();
-        loopsActive = true;
-        loopConfigSignature = getLoopConfigSignature();
+        const started = originalLoopStartAll();
+        loopsActive = started !== false;
+        if (loopsActive) loopConfigSignature = getLoopConfigSignature();
+        return started;
     };
     loopManager.stopAll = () => {
         originalLoopStopAll();
@@ -312,6 +320,8 @@ module.exports = function createAccountRuntime({ config, filePath, sharedStats }
 
     const activateReadyRuntime = (source = 'start') => {
         if (!state.client?.isReady()) return false;
+        // Saat istirahat jangan menjalankan loop; restManager memanggil ulang setelah istirahat selesai.
+        if (state.rest?.active) return false;
         const nextLoopSignature = getLoopConfigSignature();
         if (!loopsActive || nextLoopSignature !== loopConfigSignature) {
             loopManager.startAll();
@@ -340,6 +350,33 @@ module.exports = function createAccountRuntime({ config, filePath, sharedStats }
         }, 1000);
     };
 
+    // Boss2 sengaja tidak dijeda saat istirahat.
+    const restManager = createRestManager(state, configManager, {
+        onStart(status) {
+            loopManager.stopAll();
+            channelManager.stopRotation();
+            loopManager.pauseOtherCommandDelays({ reason: 'rest' });
+            state.adventureResumeAfterRest = state.adventureResumeAfterRest || !!state.adventureActive;
+            adventureManager.stopTimer();
+            state.adventureActive = false;
+            telegramService.send(`😴 <b>Istirahat dimulai</b>\nSampai: ${createRestManager.formatWib(status.until)}`);
+        },
+        onEnd() {
+            loopManager.resumeOtherCommandDelays({ reason: 'rest' });
+            if (state.adventureResumeAfterRest) {
+                state.adventureResumeAfterRest = false;
+                if (configManager.getAdventureSettings().enabled) {
+                    adventureManager.start({ restart: true }).catch(error => log.error(`${accountPrefix(state)}❌ Auto Adventure gagal dilanjutkan: ${error.message}`));
+                }
+            }
+            if (runtimeRunning && state.client?.isReady()) {
+                loopsActive = false;
+                activateReadyRuntime('rest');
+            }
+            telegramService.send('▶️ <b>Istirahat selesai</b>\nLoop dilanjutkan.');
+        }
+    });
+
     const startOtherCommandWhenReady = (index) => {
         if (otherCommandReadyWatchers.has(index)) clearInterval(otherCommandReadyWatchers.get(index));
         const watcher = setInterval(() => {
@@ -352,11 +389,17 @@ module.exports = function createAccountRuntime({ config, filePath, sharedStats }
         otherCommandReadyWatchers.set(index, watcher);
     };
 
+    restManager.start();
+
     return {
         accountId,
         filePath,
         state,
         configManager,
+        restManager,
+        getRestStatus() {
+            return restManager.getStatus();
+        },
         clientManager,
         channelManager,
         loopManager,
@@ -466,6 +509,7 @@ module.exports = function createAccountRuntime({ config, filePath, sharedStats }
             channelManager.stopRotation();
         },
         destroy() {
+            restManager.stop();
             this.pause();
             loopManager.stopOtherCommands();
             if (readyLoopWatcher) clearInterval(readyLoopWatcher);
@@ -510,6 +554,8 @@ module.exports = function createAccountRuntime({ config, filePath, sharedStats }
                 this.destroy();
                 return;
             }
+
+            restManager.tick();
 
             if (statusChanged) log.info(`${accountPrefix(state)}🔁 Status config berubah: running=${!!state.config.botStatus?.running}, paused=${!!state.config.botStatus?.paused}`);
             if (channelsChanged) log.info(`${accountPrefix(state)}📡 Config channel berubah (${(state.config.channels || []).length} channel).`);

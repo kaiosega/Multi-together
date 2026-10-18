@@ -149,6 +149,7 @@ const createGemsManager = (state, configManager, commandSender) => {
                 return null;
             }
             if (!msg || !this.isAllowed(msg, settings)) return null;
+            if (state.rest?.active) return null;
 
             const text = messageText(msg);
             const names = this.getAccountNames(msg, settings);
@@ -188,6 +189,11 @@ const createGemsManager = (state, configManager, commandSender) => {
 
         async checkInventory(settings = getSettings()) {
             if (!settings.enabled) return false;
+            if (state.rest?.active) {
+                gems.awaitingInventory = false;
+                this.scheduleRecheck(settings);
+                return false;
+            }
             gems.awaitingInventory = true;
             gems.awaitingSince = Date.now();
             const sent = await this.sendCommand(settings.inventoryCommand, 'Gems Inventory', settings);

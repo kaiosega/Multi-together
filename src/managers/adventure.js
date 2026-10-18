@@ -62,6 +62,12 @@ module.exports = (state, configManager, commandSender) => ({
             return false;
         }
 
+        if (state.rest?.active) {
+            state.adventureResumeAfterRest = true;
+            log.info(`${accountPrefix(state)}😴 Auto Adventure ditunda sampai istirahat selesai.`);
+            return false;
+        }
+
         if (state.adventureActive && !restart) return true;
 
         this.stopTimer();
@@ -79,6 +85,7 @@ module.exports = (state, configManager, commandSender) => ({
 
     stop() {
         this.stopTimer();
+        state.adventureResumeAfterRest = false;
         state.adventurePaused = false;
         state.adventureProcessing = false;
         state.adventureActive = false;
@@ -92,7 +99,7 @@ module.exports = (state, configManager, commandSender) => ({
 
     async sendAdventureCommand() {
     const settings = this.getSettings();
-    if (!settings.enabled || state.adventurePaused) return false;
+    if (!settings.enabled || state.adventurePaused || state.rest?.active) return false;
 
     return commandSender.send(
         ADVENTURE_COMMAND,
@@ -103,7 +110,7 @@ module.exports = (state, configManager, commandSender) => ({
 },
 
 scheduleNextCommand() {
-    if (state.adventureTimer || state.adventurePaused || !this.getSettings().enabled) {
+    if (state.adventureTimer || state.adventurePaused || state.rest?.active || !this.getSettings().enabled) {
         return false;
     }
 
@@ -121,7 +128,7 @@ scheduleNextCommand() {
 },
 
     async handle(msg) {
-    if (!this.matchesTarget(msg) || state.adventurePaused || state.adventureProcessing) {
+    if (!this.matchesTarget(msg) || state.adventurePaused || state.adventureProcessing || state.rest?.active) {
         return false;
     }
 

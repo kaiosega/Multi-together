@@ -1,5 +1,6 @@
 const { normalizeBoss2Settings } = require('../managers/boss2');
 const { normalizeGemsSettings } = require('../managers/gems');
+const { normalizeRestSettings } = require('../managers/rest');
 const fs = require('fs');
 const CONSTANTS = require('../constants');
 const { safeJsonStringify } = require('../utils');
@@ -9,6 +10,7 @@ const ensureRuntimeShape = (config = {}) => {
     config.settings.voice = config.settings.voice || { enabled: false, channelId: '' };
     config.settings.adventure = config.settings.adventure || { enabled: false, targetId: '', channelId: '', guildId: '' };
     config.settings.lucyControl = config.settings.lucyControl || { start: 'lucy start', pause: 'lucy pause', allowIds: [] };
+    config.settings.rest = normalizeRestSettings(config.settings.rest);
     return config;
 };
 

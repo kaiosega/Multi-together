@@ -21,6 +21,9 @@ module.exports = (state, commandSender) => ({
         state.nextAt[key] = Date.now() + delay;
 
         if (state.loops[key]) clearTimeout(state.loops[key]);
+        state.loops[key] = null;
+        // Saat istirahat jadwal disimpan di nextAt saja; startAll() melanjutkannya setelah istirahat.
+        if (state.rest?.active) return;
         state.loops[key] = setTimeout(fn, delay);
     },
 
@@ -176,9 +179,13 @@ module.exports = (state, commandSender) => ({
         const key = `other${index + 1}`;
         if (!command?.enabled || !command.text?.trim() || !command.channelId?.trim()) return;
 
-        const sendsLeft = Math.max(1, Number(remaining) || Number(command.count) || 1);
+        // count kosong/0 = infinite.
+        const infinite = !(Number(command.count) > 0);
+        const sendsLeft = infinite
+            ? Infinity
+            : Math.max(1, Number.isFinite(Number(remaining)) && Number(remaining) > 0 ? Number(remaining) : Number(command.count));
         const pauseOnCaptcha = command.captchaEnabled !== false;
-        if (pauseOnCaptcha && state.hasActiveCaptcha) {
+        if (state.rest?.active || (pauseOnCaptcha && state.hasActiveCaptcha)) {
             this._scheduleOtherCommandDelay(index, sendsLeft, 0);
             return;
         }
@@ -202,7 +209,7 @@ module.exports = (state, commandSender) => ({
         if (!sent) {
             this._scheduleOtherCommandDelay(index, sendsLeft, command.delayMs);
         } else if (sendsLeft > 1) {
-            this._scheduleOtherCommandDelay(index, sendsLeft - 1, command.delayMs);
+            this._scheduleOtherCommandDelay(index, infinite ? Infinity : sendsLeft - 1, command.delayMs);
         } else {
             state.loops[key] = null;
             command.enabled = false;
@@ -223,13 +230,14 @@ module.exports = (state, commandSender) => ({
             remainingMs: Math.max(0, Number(delayMs) || 0),
             startedAt: null,
             timer: null,
-            paused: command.captchaEnabled !== false && state.hasActiveCaptcha
+            paused: command.captchaEnabled !== false && state.hasActiveCaptcha,
+            restPaused: !!state.rest?.active
         };
         state.otherCommandDelays[key] = delay;
 
         const resumeDelay = () => {
             if (state.otherCommandDelays?.[key] !== delay || !command.enabled) return;
-            if (delay.paused) return;
+            if (delay.paused || delay.restPaused) return;
             delay.startedAt = Date.now();
             delay.timer = setTimeout(() => {
                 if (state.otherCommandDelays?.[key] !== delay || !command.enabled) return;
@@ -244,25 +252,31 @@ module.exports = (state, commandSender) => ({
         resumeDelay();
     },
 
-    pauseOtherCommandDelays() {
+    // reason 'captcha' (default) hanya untuk slot dengan captcha; 'rest' menjeda semua slot.
+    pauseOtherCommandDelays({ reason = 'captcha' } = {}) {
+        const flag = reason === 'rest' ? 'restPaused' : 'paused';
         Object.entries(state.otherCommandDelays || {}).forEach(([key, delay]) => {
             const command = state.config.otherCommands?.[delay?.index];
-            if (!delay || command?.captchaEnabled === false || delay.paused) return;
+            if (!delay || delay[flag]) return;
+            if (reason !== 'rest' && command?.captchaEnabled === false) return;
+            const wasRunning = !delay.paused && !delay.restPaused;
+            delay[flag] = true;
+            if (!wasRunning) return;
             if (delay.timer) clearTimeout(delay.timer);
             delay.timer = null;
             delay.remainingMs = Math.max(0, delay.remainingMs - (Date.now() - (delay.startedAt || Date.now())));
             delay.startedAt = null;
-            delay.paused = true;
             state.loops[key] = null;
             delete state.nextAt[key];
         });
     },
 
-    resumeOtherCommandDelays() {
+    resumeOtherCommandDelays({ reason = 'captcha' } = {}) {
+        const flag = reason === 'rest' ? 'restPaused' : 'paused';
         Object.values(state.otherCommandDelays || {}).forEach(delay => {
-            if (!delay?.paused) return;
-            delay.paused = false;
-            delay.resume();
+            if (!delay?.[flag]) return;
+            delay[flag] = false;
+            if (!delay.paused && !delay.restPaused) delay.resume();
         });
     },
 
@@ -300,6 +314,11 @@ module.exports = (state, commandSender) => ({
     startAll() {
         this.init();
         this.stopAll();
+
+        if (state.rest?.active) {
+            log.info(`${accountPrefix(state)}😴 Start loop ditunda: sedang istirahat.`);
+            return false;
+        }
 
         const isFirstLoopStartup = !state.hasUsedFirstLoopStartupStagger;
         state.hasUsedFirstLoopStartupStagger = true;
@@ -340,6 +359,7 @@ module.exports = (state, commandSender) => ({
         }
 
         log.success(`${accountPrefix(state)}🔄 Semua loop dimulai / resume`);
+        return true;
     },
 
     stopAll() {

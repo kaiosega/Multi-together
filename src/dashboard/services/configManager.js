@@ -1,5 +1,7 @@
 const { normalizeBoss2Settings } = require('../../managers/boss2');
 const { normalizeGemsSettings } = require('../../managers/gems');
+const { normalizeRestSettings } = require('../../managers/rest');
+const { normalizeSendCount } = require('../../utils');
 module.exports = function createConfigManager({ configPath, fileService, CONSTANTS }) {
     return {
     get() {
@@ -35,6 +37,7 @@ module.exports = function createConfigManager({ configPath, fileService, CONSTAN
         config.settings.boss = config.settings.boss || { enabled: true, allowedGuilds: [] };
         config.settings.boss2 = normalizeBoss2Settings(config.settings.boss2);
         config.settings.gems = normalizeGemsSettings(config.settings.gems);
+        config.settings.rest = normalizeRestSettings(config.settings.rest);
         config.settings.adventure = config.settings.adventure || { enabled: false, targetId: '', channelId: '', guildId: '' };
         config.settings.messageFilter = config.settings.messageFilter || { enabled: true, channelIds: [], guildIds: [], debug: false, debugOnlyOwO: false };
         config.settings.messageDebug = config.settings.messageDebug || { enabled: false, targetId: '', channelId: '', guildId: '' };
@@ -46,7 +49,7 @@ module.exports = function createConfigManager({ configPath, fileService, CONSTAN
             return {
                 text: String(command.text || ''),
                 delayMs: Math.max(0, this.toInt(command.delayMs, 5000)),
-                count: Math.max(1, this.toInt(command.count, 1)),
+                count: normalizeSendCount(command.count),
                 channelId: String(command.channelId || ''),
                 captchaEnabled: false,
                 enabled: command.enabled === true
@@ -100,7 +103,7 @@ module.exports = function createConfigManager({ configPath, fileService, CONSTAN
             return {
                 text: String(body[`other${index + 1}Text`] || '').trim(),
                 delayMs: Math.max(0, this.toInt(body[`other${index + 1}Delay`], Math.floor((current.delayMs || 5000) / 1000))) * 1000,
-                count: Math.max(1, this.toInt(body[`other${index + 1}Count`], current.count || 1)),
+                count: normalizeSendCount(body[`other${index + 1}Count`], normalizeSendCount(current.count)),
                 channelId: String(body[`other${index + 1}Channel`] || '').trim(),
                 captchaEnabled: false,
                 enabled: current.enabled === true
@@ -170,6 +173,21 @@ module.exports = function createConfigManager({ configPath, fileService, CONSTAN
             recheckMinutes: body.gemsRecheckMinutes,
             delayMinMs: body.gemsDelayMin,
             delayMaxMs: body.gemsDelayMax
+        });
+
+        const restHours = parseFloat(String(body.restBudgetHours ?? '').replace(',', '.'));
+        config.settings.rest = normalizeRestSettings({
+            schedule: {
+                enabled: this.toBool(body.restScheduleEnabled),
+                start: body.restScheduleStart,
+                end: body.restScheduleEnd
+            },
+            budget: {
+                enabled: this.toBool(body.restBudgetEnabled),
+                maxMinutes: Number.isFinite(restHours) ? Math.round(restHours * 60) : config.settings.rest?.budget?.maxMinutes,
+                minSessionMinutes: body.restBudgetMinSession,
+                maxSessionMinutes: body.restBudgetMaxSession
+            }
         });
 
         config.settings.adventure.targetId = String(body.adventureTargetId || '').trim();

@@ -211,6 +211,8 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
                         </div>
                     </div>
 
+${renderRestSettings(config.settings?.rest)}
+
                     <div id="tab-safety" class="tab-content">
                         <div class="category-heading">
                             <div>
@@ -393,6 +395,86 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
         `;
     }
 
+    function renderRestSettings(rest = {}) {
+        const schedule = rest.schedule || {};
+        const budget = rest.budget || {};
+        const budgetHours = Number.isFinite(Number(budget.maxMinutes)) ? Number(budget.maxMinutes) / 60 : 5;
+        return `
+                    <div id="tab-rest" class="tab-content">
+                        <div class="category-heading">
+                            <div>
+                                <span class="section-label">Safety</span>
+                                <h3>😴 Istirahat</h3>
+                            </div>
+                        </div>
+                        <div class="input-hint">Menjeda sementara semua loop (OwO, HuntBot, Boss OwO, Channel Rotation, Custom Commands Lucy, Auto Use Gems, Auto Adventure) lalu melanjutkannya otomatis. Auto Boss2 tetap berjalan. Kedua mode bisa diaktifkan terpisah atau bersamaan.</div>
+
+                        <div class="card">
+                            <label>📊 STATUS ISTIRAHAT</label>
+                            <div id="restStatus" class="input-hint">Memuat status...</div>
+                        </div>
+
+                        <div class="card">
+                            <label>🕔 MODE 1: JADWAL ISTIRAHAT (WIB)</label>
+                            <div class="toggle-row">
+                                <span>Enable Jadwal Istirahat</span>
+                                <input type="checkbox" name="restScheduleEnabled" ${schedule.enabled ? 'checked' : ''}>
+                            </div>
+                            <div class="row">
+                                <div class="col"><label>Jam Mulai</label><input type="time" name="restScheduleStart" value="${escapeHtml(schedule.start || '05:00')}"></div>
+                                <div class="col"><label>Jam Selesai</label><input type="time" name="restScheduleEnd" value="${escapeHtml(schedule.end || '10:00')}"></div>
+                            </div>
+                            <div class="input-hint">Contoh 05:00 – 10:00: loop berhenti jam 05.00 WIB dan lanjut jam 10.00 WIB. Jam mulai lebih besar dari jam selesai berarti melewati tengah malam.</div>
+                        </div>
+
+                        <div class="card">
+                            <label>🎲 MODE 2: BATAS TOTAL ISTIRAHAT / 24 JAM</label>
+                            <div class="toggle-row">
+                                <span>Enable Batas Istirahat Acak</span>
+                                <input type="checkbox" name="restBudgetEnabled" ${budget.enabled ? 'checked' : ''}>
+                            </div>
+                            <label>Batas Istirahat per 24 Jam (jam)</label>
+                            <input type="number" min="0.25" max="20" step="0.25" name="restBudgetHours" value="${budgetHours}" placeholder="5">
+                            <label>Durasi per Sesi Acak (menit)</label>
+                            <div class="row">
+                                <div class="col"><input type="number" min="1" name="restBudgetMinSession" value="${budget.minSessionMinutes ?? 15}" placeholder="Min"></div>
+                                <div class="col"><input type="number" min="1" name="restBudgetMaxSession" value="${budget.maxSessionMinutes ?? 60}" placeholder="Max"></div>
+                            </div>
+                            <div class="input-hint">Total batas dibagi menjadi beberapa sesi dengan durasi dan jam mulai acak. Akumulasi sesi dalam satu periode 24 jam tidak pernah melebihi batas.</div>
+                        </div>
+                        <script>
+                            (function () {
+                                const box = document.getElementById('restStatus');
+                                if (!box) return;
+                                const profileInput = document.querySelector('input[name="viewingProfileId"]');
+                                const query = profileInput && profileInput.value ? '?profileId=' + encodeURIComponent(profileInput.value) : '';
+                                const render = (accounts) => {
+                                    box.textContent = '';
+                                    if (!accounts.length) { box.textContent = 'Belum ada akun berjalan.'; return; }
+                                    accounts.forEach(account => {
+                                        const title = document.createElement('div');
+                                        title.style.fontWeight = '600';
+                                        title.textContent = account.name || account.accountId;
+                                        box.appendChild(title);
+                                        (account.lines || []).forEach(line => {
+                                            const row = document.createElement('div');
+                                            row.textContent = line;
+                                            box.appendChild(row);
+                                        });
+                                    });
+                                };
+                                const load = () => fetch('/api/rest-status' + query, { cache: 'no-store' })
+                                    .then(res => res.json())
+                                    .then(data => render(data.accounts || []))
+                                    .catch(() => { box.textContent = 'Status istirahat tidak tersedia.'; });
+                                load();
+                                setInterval(load, 15000);
+                            })();
+                        </script>
+                    </div>
+        `;
+    }
+
     function renderLucySettings({ config, boss2 = {}, gems = {}, adventure = {}, lucyControl = {} }) {
         return `
                     <div id="tab-lucy-commands" class="tab-content">
@@ -402,9 +484,10 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
                                 <h3>🧩 Custom Commands Lucy</h3>
                             </div>
                         </div>
-                        <div class="input-hint">Setiap slot dikirim ke channel pilihannya sendiri. Start menjalankan sejumlah pengiriman yang diatur; Stop membatalkan slot tersebut.</div>
+                        <div class="input-hint">Setiap slot dikirim ke channel pilihannya sendiri. Start menjalankan sejumlah pengiriman yang diatur (kosongkan Jumlah Pengiriman untuk infinite); Stop membatalkan slot tersebut.</div>
                         ${(config.otherCommands || []).map((command, index) => {
                             const slot = index + 1;
+                            const isInfinite = !(Number(command.count) > 0);
                             return `
                                 <div class="card">
                                     <label>Custom Command Lucy ${slot}</label>
@@ -412,14 +495,14 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
                                     <input type="text" name="other${slot}Text" value="${escapeHtml(command.text)}" placeholder="Contoh: !test">
                                     <div class="row">
                                         <div class="col"><label>Delay / Jeda (detik)</label><input type="number" min="0" step="1" name="other${slot}Delay" value="${Math.floor((command.delayMs || 0) / 1000)}"></div>
-                                        <div class="col"><label>Jumlah Pengiriman</label><input type="number" min="1" step="1" name="other${slot}Count" value="${command.count || 1}"></div>
+                                        <div class="col"><label>Jumlah Pengiriman</label><input type="number" min="1" step="1" name="other${slot}Count" value="${isInfinite ? '' : command.count}" placeholder="Kosong = ∞ Infinite"></div>
                                     </div>
                                     <label>Target Channel</label>
                                     <input type="text" name="other${slot}Channel" value="${escapeHtml(command.channelId)}" placeholder="Discord Channel ID">
                                     <div class="action-group" style="margin-top: 12px;">
                                         <button type="submit" name="action" value="otherCommandStart${slot}" class="btn btn-start">▶ START</button>
                                         <button type="submit" name="action" value="otherCommandStop${slot}" class="btn btn-pause">⏸ STOP</button>
-                                        <span class="input-hint">${command.enabled ? '▶ Menunggu / berjalan' : '⏹ Berhenti'}</span>
+                                        <span class="input-hint">${command.enabled ? '▶ Menunggu / berjalan' : '⏹ Berhenti'} · ${isInfinite ? '∞ Infinite' : `${command.count}x`}</span>
                                     </div>
                                 </div>`;
                         }).join('')}
@@ -579,6 +662,7 @@ module.exports = function createSettingsTabs({ escapeHtml }) {
                                 <button type="button" class="settings-menu-item" data-menu-label="Captcha" onclick="switchTab(event, 'tab-captcha')">🛡️ Captcha</button>
                                 <button type="button" class="settings-menu-item" data-menu-label="Integrasi Sistem" onclick="switchTab(event, 'tab-integrations')">🔌 Integrasi Sistem</button>
                                 <button type="button" class="settings-menu-item" data-menu-label="Safety & Filter" onclick="switchTab(event, 'tab-safety')">🛡️ Safety & Filter</button>
+                                <button type="button" class="settings-menu-item" data-menu-label="Istirahat" onclick="switchTab(event, 'tab-rest')">😴 Istirahat</button>
                                 <button type="button" class="settings-menu-item" data-menu-label="Debug Pesan" onclick="switchTab(event, 'tab-message-debug')">🔎 Debug Pesan</button>
                                 <button type="button" class="settings-menu-item" data-menu-label="Automasi OwO" onclick="switchTab(event, 'tab-automation')">🤖 Automasi OwO</button>
                                 <button type="button" class="settings-menu-item" data-menu-label="Kontrol & Sistem" onclick="switchTab(event, 'tab-control')">🎮 Kontrol & Sistem</button>

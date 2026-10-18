@@ -27,6 +27,14 @@ module.exports = {
 
     accountPrefix,
     
+    // Jumlah pengiriman Custom Command Lucy: kosong/0 = infinite (0), undefined = fallback.
+    normalizeSendCount: (value, fallback = 1) => {
+        if (value === undefined) return fallback;
+        if (value === null || String(value).trim() === '') return 0;
+        const num = parseInt(value, 10);
+        return Number.isFinite(num) && num > 0 ? num : 0;
+    },
+
     safeJsonStringify: (obj) => {
         try {
             return JSON.stringify(obj);

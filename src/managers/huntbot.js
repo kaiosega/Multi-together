@@ -118,6 +118,11 @@ isPaused() {
             return true;
         }
 
+        if (state.rest?.active) {
+            log.info(`${accountPrefix(state)}😴 HuntBot action '${actionName}' ditunda: sedang istirahat.`);
+            return true;
+        }
+
         // 2. Cek toggle setting huntbot. Config versi baru menyimpan HuntBot di root
         // `huntbot`, tetapi sebagian config lama pernah memakai `settings.huntbot`.
         if (state.config?.huntbot?.enabled === false || state.config?.settings?.huntbot?.enabled === false) {
@@ -635,7 +640,7 @@ startMonitoring() {
 },
 
 checkActiveHunt() {
-    if (state.hasActiveCaptcha) return;
+    if (state.hasActiveCaptcha || state.rest?.active) return;
     if (!huntbotState.activeHunt?.endTime) return;
         
         const now = Date.now();

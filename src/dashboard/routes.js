@@ -1,5 +1,6 @@
 const express = require('express');
 const fs = require('fs');
+const { describeRestStatus } = require('../managers/rest');
 function createDashboardRoutes({ configManager, fileService, profileManager, uiComponents, logService, statsService, discordProfileService, state, logger }) {
     const router = express.Router();
 
@@ -192,6 +193,25 @@ function createDashboardRoutes({ configManager, fileService, profileManager, uiC
             : [];
         res.setHeader('Cache-Control', 'no-store');
         res.json({ entries });
+    });
+
+    router.get('/api/rest-status', (req, res) => {
+        const accountId = String(req.query.profileId || '');
+        const runtimes = Array.from(state?.accountRuntimes?.values?.() || []);
+        const accounts = runtimes
+            .filter(runtime => !accountId || String(runtime.accountId) === accountId)
+            .filter(runtime => typeof runtime.getRestStatus === 'function')
+            .map(runtime => {
+                const status = runtime.getRestStatus();
+                return {
+                    accountId: runtime.accountId,
+                    name: typeof runtime.getDisplayName === 'function' ? runtime.getDisplayName() : runtime.accountId,
+                    status,
+                    lines: describeRestStatus(status)
+                };
+            });
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ accounts });
     });
 
     router.post('/api/message-debug/clear', (req, res) => {
